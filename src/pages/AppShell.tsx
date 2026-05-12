@@ -1,27 +1,26 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/app")({
-  head: () => ({ meta: [{ title: "Dashboard — Video Speed Reader" }] }),
-  component: AppShell,
-});
-
-function AppShell() {
+export default function AppShell() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && !user) navigate({ to: "/signin" });
+    document.title = "Dashboard — Video Speed Reader";
+  }, []);
+
+  useEffect(() => {
+    if (!loading && !user) navigate("/signin");
   }, [loading, user, navigate]);
 
   const onSignOut = async () => {
     await supabase.auth.signOut();
     toast.success("Signed out");
-    navigate({ to: "/" });
+    navigate("/");
   };
 
   if (loading || !user) {

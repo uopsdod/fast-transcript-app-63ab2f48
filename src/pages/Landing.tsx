@@ -1,25 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { Sparkles, Clock, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "Video Speed Reader — Upload your video, get a transcript in 3 minutes" },
-      {
-        name: "description",
-        content:
-          "Turn any video into an accurate transcript in three minutes. Built for creators, educators, and engineers.",
-      },
-      { property: "og:title", content: "Video Speed Reader" },
-      {
-        property: "og:description",
-        content: "Upload your video, get a clean transcript in three minutes.",
-      },
-    ],
-  }),
-  component: Landing,
-});
 
 const features = [
   {
@@ -42,7 +23,7 @@ const features = [
   },
 ];
 
-function Landing() {
+export default function Landing() {
   return (
     <div className="min-h-screen bg-hero">
       <header className="container mx-auto flex items-center justify-between px-6 py-6">
@@ -65,7 +46,7 @@ function Landing() {
               <span className="text-gradient">Video Speed Reader</span>
             </h1>
             <p className="mt-8 text-2xl font-medium md:text-3xl">
-              上傳影片，三分鐘內拿到逐字稿。
+              上傳影片,三分鐘內拿到逐字稿。
             </p>
             <p className="mt-3 text-lg text-muted-foreground">
               Upload your video, get a clean transcript in three minutes.
