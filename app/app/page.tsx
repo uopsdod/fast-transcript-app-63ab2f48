@@ -28,11 +28,19 @@ export default async function AppShellPage() {
             <div className="h-8 w-8 rounded-lg bg-gradient-primary shadow-glow" />
             <span className="font-semibold tracking-tight">Video Speed Reader</span>
           </Link>
-          <form action={signOut}>
-            <Button type="submit" variant="outline">
-              Sign out
-            </Button>
-          </form>
+          <nav className="flex items-center gap-3">
+            <Link
+              href="/upload"
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              Transcriptions
+            </Link>
+            <form action={signOut}>
+              <Button type="submit" variant="outline" size="sm">
+                Sign out
+              </Button>
+            </form>
+          </nav>
         </div>
       </header>
       <main className="container mx-auto px-6 py-20">
@@ -41,7 +49,11 @@ export default async function AppShellPage() {
             Hi <span className="text-gradient">{user.email}</span>
           </h1>
           <p className="mt-4 text-muted-foreground">
-            Your dashboard is coming soon. Upload functionality will be added in the next milestone.
+            Head over to{" "}
+            <Link href="/upload" className="text-primary hover:underline">
+              Transcriptions
+            </Link>{" "}
+            to submit a video for processing.
           </p>
         </div>
       </main>
