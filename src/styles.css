@@ -6,6 +6,7 @@
 
 @theme inline {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Cormorant Garamond", Georgia, serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -33,32 +34,37 @@
 }
 
 :root {
-  --radius: 0.75rem;
-  --background: oklch(0.16 0.02 280);
-  --foreground: oklch(0.97 0.01 280);
-  --card: oklch(0.20 0.025 280);
-  --card-foreground: oklch(0.97 0.01 280);
-  --popover: oklch(0.20 0.025 280);
-  --popover-foreground: oklch(0.97 0.01 280);
-  --primary: oklch(0.65 0.22 295);
-  --primary-foreground: oklch(0.99 0 0);
-  --primary-glow: oklch(0.75 0.20 300);
-  --secondary: oklch(0.26 0.03 280);
-  --secondary-foreground: oklch(0.97 0.01 280);
-  --muted: oklch(0.24 0.025 280);
-  --muted-foreground: oklch(0.70 0.03 280);
-  --accent: oklch(0.30 0.08 295);
-  --accent-foreground: oklch(0.98 0.01 280);
-  --destructive: oklch(0.62 0.24 25);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.28 0.03 280);
-  --input: oklch(0.28 0.03 280);
-  --ring: oklch(0.65 0.22 295);
+  --radius: 0.625rem;
 
-  --gradient-hero: radial-gradient(ellipse at top, oklch(0.30 0.15 295 / 0.6), transparent 60%),
-                   linear-gradient(180deg, oklch(0.16 0.02 280) 0%, oklch(0.13 0.02 280) 100%);
+  /* ── Warm parchment + sage green palette ──────────────────────────────
+     Inspired by the oil painting: beige/tan wall, olive-green armchair,
+     cream dress, near-black hat band. Warm, literary, elegant.
+  ───────────────────────────────────────────────────────────────────── */
+  --background:            oklch(0.93 0.025 85);   /* warm parchment        */
+  --foreground:            oklch(0.18 0.04  60);   /* deep warm brown       */
+  --card:                  oklch(0.97 0.015 85);   /* soft cream            */
+  --card-foreground:       oklch(0.18 0.04  60);
+  --popover:               oklch(0.97 0.015 85);
+  --popover-foreground:    oklch(0.18 0.04  60);
+  --primary:               oklch(0.44 0.10 145);   /* sage olive green      */
+  --primary-foreground:    oklch(0.98 0.01  85);   /* cream white           */
+  --primary-glow:          oklch(0.57 0.09 145);   /* lighter sage          */
+  --secondary:             oklch(0.87 0.03  85);   /* warm linen tan        */
+  --secondary-foreground:  oklch(0.25 0.04  65);
+  --muted:                 oklch(0.89 0.025 85);   /* warm linen            */
+  --muted-foreground:      oklch(0.50 0.04  75);   /* warm taupe            */
+  --accent:                oklch(0.80 0.05  90);   /* warm khaki            */
+  --accent-foreground:     oklch(0.20 0.04  60);
+  --destructive:           oklch(0.55 0.22  25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border:                oklch(0.83 0.03  82);   /* warm tan border       */
+  --input:                 oklch(0.90 0.025 82);
+  --ring:                  oklch(0.44 0.10 145);   /* sage green            */
+
+  --gradient-hero: radial-gradient(ellipse 80% 55% at 50% 0%, oklch(0.62 0.08 145 / 0.12), transparent 65%),
+                   linear-gradient(180deg, oklch(0.93 0.025 85) 0%, oklch(0.90 0.03 82) 100%);
   --gradient-primary: linear-gradient(135deg, var(--primary), var(--primary-glow));
-  --shadow-glow: 0 20px 60px -20px color-mix(in oklab, var(--primary) 50%, transparent);
+  --shadow-glow: 0 20px 60px -20px color-mix(in oklab, var(--primary) 30%, transparent);
 }
 
 @layer base {
@@ -68,6 +74,10 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 {
+    font-family: var(--font-serif);
+    letter-spacing: 0.01em;
   }
 }
 
