@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
+import { Download } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { UploadForm } from "./upload-form";
@@ -114,7 +115,8 @@ export default async function UploadPage() {
                     <tr className="border-b border-border">
                       <th className="py-2 pr-3 font-medium">Created</th>
                       <th className="py-2 pr-3 font-medium">URL</th>
-                      <th className="py-2 font-medium">Status</th>
+                      <th className="py-2 pr-3 font-medium">Status</th>
+                      <th className="py-2 font-medium">Transcript</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -128,8 +130,22 @@ export default async function UploadPage() {
                             {truncate(j.video_source_url, 50)}
                           </span>
                         </td>
-                        <td className="py-3">
+                        <td className="py-3 pr-3">
                           <StatusBadge status={j.status} />
+                        </td>
+                        <td className="py-3">
+                          {j.status === "done" ? (
+                            <a
+                              href={`/api/jobs/${j.id}/transcript`}
+                              download={`transcript-${j.id.slice(0, 8)}.txt`}
+                              className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              .txt
+                            </a>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
+                          )}
                         </td>
                       </tr>
                     ))}
