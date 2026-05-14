@@ -69,7 +69,7 @@ export function UploadForm() {
           type="url"
           required
           inputMode="url"
-          placeholder="https://www.youtube.com/watch?v=..."
+          placeholder="Direct mp4 / mp3 URL (e.g. CloudFront, Vimeo, Internet Archive)"
           value={videoUrl}
           onChange={(e) => setVideoUrl(e.target.value)}
         />
