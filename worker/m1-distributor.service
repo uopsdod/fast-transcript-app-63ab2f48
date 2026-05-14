@@ -16,6 +16,12 @@ StandardError=append:/var/log/m1-distributor.log
 # EC2 was launched in (this project: us-east-1). boto3 errors with
 # NoRegionError if it can't determine the region.
 Environment=AWS_DEFAULT_REGION=us-east-1
+# The worker shells out to `yt-dlp`, `ffmpeg`, and `ffprobe`. pip installs
+# yt-dlp's binary into the venv's bin/, NOT into the system PATH; systemd
+# services don't inherit a login shell's PATH, so without this the worker
+# crashes with `FileNotFoundError: 'yt-dlp'`. Putting the venv bin first
+# also picks up the right Python in subshells.
+Environment=PATH=/home/ubuntu/app/worker/venv/bin:/usr/local/bin:/usr/bin:/bin
 
 [Install]
 WantedBy=multi-user.target
