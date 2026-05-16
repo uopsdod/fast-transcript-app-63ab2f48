@@ -5,12 +5,14 @@ import { Download } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { UploadForm } from "./upload-form";
+import { SummaryCell } from "./summary-cell";
 
 type JobRow = {
   id: string;
   created_at: string;
   video_source_url: string;
   status: "pending" | "downloading" | "transcribe" | "done";
+  current_session_id: string | null;
 };
 
 function StatusBadge({ status }: { status: JobRow["status"] }) {
@@ -49,10 +51,30 @@ export default async function UploadPage() {
 
   const { data: jobs } = await supabase
     .from("jobs")
-    .select("id, created_at, video_source_url, status")
+    .select("id, created_at, video_source_url, status, current_session_id")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(20);
+
+  // Pull the cached summaries (if any) for the user's recent jobs in a
+  // single follow-up query. RLS on job_sessions restricts this to rows
+  // whose parent job belongs to the caller.
+  const sessionIds = (jobs ?? [])
+    .map((j) => j.current_session_id)
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
+
+  const summaryByJobId = new Map<string, string | null>();
+  if (sessionIds.length > 0) {
+    const { data: sessions } = await supabase
+      .from("job_sessions")
+      .select("id, summary_txt_content")
+      .in("id", sessionIds);
+    for (const j of jobs ?? []) {
+      if (!j.current_session_id) continue;
+      const s = sessions?.find((row) => row.id === j.current_session_id);
+      summaryByJobId.set(j.id, s?.summary_txt_content ?? null);
+    }
+  }
 
   async function signOut() {
     "use server";
@@ -116,7 +138,8 @@ export default async function UploadPage() {
                       <th className="py-2 pr-3 font-medium">Created</th>
                       <th className="py-2 pr-3 font-medium">URL</th>
                       <th className="py-2 pr-3 font-medium">Status</th>
-                      <th className="py-2 font-medium">Transcript</th>
+                      <th className="py-2 pr-3 font-medium">Transcript</th>
+                      <th className="py-2 font-medium">Summary</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -133,7 +156,7 @@ export default async function UploadPage() {
                         <td className="py-3 pr-3">
                           <StatusBadge status={j.status} />
                         </td>
-                        <td className="py-3">
+                        <td className="py-3 pr-3">
                           {j.status === "done" ? (
                             <a
                               href={`/api/jobs/${j.id}/transcript`}
@@ -146,6 +169,13 @@ export default async function UploadPage() {
                           ) : (
                             <span className="text-sm text-muted-foreground">—</span>
                           )}
+                        </td>
+                        <td className="py-3">
+                          <SummaryCell
+                            jobId={j.id}
+                            initialSummary={summaryByJobId.get(j.id) ?? null}
+                            status={j.status}
+                          />
                         </td>
                       </tr>
                     ))}
