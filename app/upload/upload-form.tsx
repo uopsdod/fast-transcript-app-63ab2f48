@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +21,7 @@ export function UploadForm() {
   const [topic, setTopic] = useState("");
   const [language, setLanguage] = useState("zh");
   const [loading, setLoading] = useState(false);
-  const [inlineError, setInlineError] = useState<string | null>(null);
+  const [inlineError, setInlineError] = useState<ReactNode | null>(null);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -39,8 +40,29 @@ export function UploadForm() {
       const body = (await res.json().catch(() => ({}))) as {
         job_id?: string;
         error?: string;
+        code?: string;
       };
       if (!res.ok) {
+        // 402: M2 pre-check found the user is out of credits. Surface a
+        // shopping-link CTA inline; the toast still fires for parity with
+        // other errors. The skill calls this the cheap "fast pre-check at
+        // the API edge" — the precise per-video check happens on the worker.
+        if (res.status === 402 || body.code === "insufficient_credits") {
+          const msg = body.error ?? "You don't have enough credits.";
+          setInlineError(
+            <>
+              You don&apos;t have enough credits.{" "}
+              <Link
+                href="/credits"
+                className="font-medium text-primary underline-offset-2 hover:underline"
+              >
+                Buy credits →
+              </Link>
+            </>,
+          );
+          toast.error(msg);
+          return;
+        }
         const msg = body.error ?? `Request failed (HTTP ${res.status})`;
         setInlineError(msg);
         toast.error(msg);

@@ -32,7 +32,28 @@ export async function POST(req: Request) {
     );
   }
 
-  // 2. Use the Supabase Secret key for the insert. The caller was already
+  // 2. M2 credit floor check (cheap pre-check at the API edge).
+  //    Reject submissions from users with < 1 credit before doing any DB
+  //    writes. The precise per-video check (minutes vs balance) runs on the
+  //    worker, where the actual duration is known via yt-dlp. This is the
+  //    two-layer billing pattern: cheap + fast at the edge, precise +
+  //    authoritative in the worker.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("credits_balance")
+    .eq("id", user.id)
+    .single();
+  if (!profile || Number(profile.credits_balance) < 1) {
+    return NextResponse.json(
+      {
+        error: "insufficient credits — please buy more at /credits",
+        code: "insufficient_credits",
+      },
+      { status: 402 },
+    );
+  }
+
+  // 3. Use the Supabase Secret key for the insert. The caller was already
   //    authenticated above. The Secret key bypasses RLS so we can write
   //    `user_id = user.id` directly without a policy round-trip.
   //    SUPABASE_SECRET_KEY is server-only and must NEVER be prefixed with
