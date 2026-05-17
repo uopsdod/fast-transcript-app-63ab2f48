@@ -38,7 +38,11 @@ export const config = {
      * - _next/static, _next/image (Next.js internals)
      * - favicon.ico
      * - common static asset extensions
+     * - /api/stripe/webhook — machine-to-machine callback from Stripe; no
+     *   auth cookie to refresh, so auth.getUser() is wasted I/O. Skipping
+     *   it also future-proofs against any redirect rule we might add to
+     *   the middleware later that would otherwise break the webhook.
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/stripe/webhook|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
