@@ -1,16 +1,22 @@
 """
 M2 worker: M1 + Stripe credits.
 
-Polls one job at a time. Before downloading + Whisper:
-  1. Probes the video duration with yt-dlp (no download) — or ffprobe for
-     local-file inputs — and rounds up to whole minutes.
-  2. Reads the user's profiles.credits_balance.
-  3. If minutes > balance → marks the job `insufficient_credits`, writes a
-     zero-amount ledger row explaining why, and exits without calling Whisper
-     (so the user is never billed and no Whisper minutes are wasted).
-  4. Otherwise runs the M1 pipeline as before, then on `done` writes a
-     `deduction` ledger row (amount = -minutes, with job_id) and decrements
-     profiles.credits_balance.
+Polls one job at a time. Order of operations:
+  1. CLAIM the job immediately by flipping status='downloading'. The
+     distributor scans `WHERE status='pending'`, so this stops a worker
+     crash below from triggering a re-spawn loop.
+  2. Try a cheap pre-download duration probe via `yt-dlp --print duration`.
+     If it returns a number, compare to the user's profiles.credits_balance
+     and short-circuit to `insufficient_credits` if low — saving Whisper
+     minutes AND the download bandwidth.
+  3. If the cheap probe can't determine duration (some CloudFront mp4s
+     have moov-at-end and need the whole file before metadata is reachable),
+     proceed to download the video anyway, then ffprobe the local file and
+     re-check balance. We've spent download bandwidth, but Whisper hasn't
+     been called so no OpenAI charges yet.
+  4. Run the M1 Whisper pipeline. On success, write a `deduction` ledger
+     row (amount = -minutes, with job_id) and decrement
+     profiles.credits_balance, THEN flip status='done'.
 
 The deduction is two writes (insert ledger, update balance). The ledger is
 the source of truth; balance is a derived cache that can be reconstructed
@@ -106,27 +112,43 @@ def get_duration_seconds(audio_path: Path) -> float:
     return float(out.stdout.strip())
 
 
-def probe_duration_minutes(video_source: str) -> int:
+def probe_duration_minutes_cheap(video_source: str) -> int | None:
     """
-    Probe the video's duration WITHOUT downloading. Returns ceil(seconds / 60).
-    Minimum of 1, so a 17-second clip still costs 1 credit (no rounding down
-    to free).
+    Cheap pre-download probe via yt-dlp metadata. Returns ceil(seconds / 60)
+    with a minimum of 1, OR None if duration can't be determined without
+    downloading the whole file.
 
-    URLs: yt-dlp's `--print duration` fetches metadata only.
-    Local paths: ffprobe directly. We don't have a download to skip in that
-    case anyway, so the cost saving doesn't apply — only correctness does.
+    Why None is a real outcome: many CloudFront-hosted mp4s have their moov
+    atom at the END of the file (a fast-start vs. progressive-download
+    tradeoff some encoders make). yt-dlp's metadata probe can't reach the
+    moov without pulling the whole video, so it prints `NA`. We can't tell
+    upfront if a URL is one of these; we just try, and fall back to a
+    post-download ffprobe in main() when this returns None.
+
+    Local paths: ffprobe directly. Always returns an int (no fallback path
+    needed — there's no download to defer).
     """
-    if video_source.startswith(("http://", "https://")):
+    if not video_source.startswith(("http://", "https://")):
+        seconds = get_duration_seconds(Path(video_source).expanduser().resolve())
+        return max(1, math.ceil(seconds / 60))
+    try:
         out = subprocess.run(
             ["yt-dlp", "--print", "duration", "--no-warnings", video_source],
             check=True,
             capture_output=True,
             text=True,
         )
-        seconds = float(out.stdout.strip())
-    else:
-        seconds = get_duration_seconds(Path(video_source).expanduser().resolve())
-    return max(1, math.ceil(seconds / 60))
+        raw = out.stdout.strip()
+        if not raw or raw.upper() == "NA":
+            return None
+        return max(1, math.ceil(float(raw) / 60))
+    except (subprocess.CalledProcessError, ValueError):
+        return None
+
+
+def minutes_from_file(audio_path: Path) -> int:
+    """Post-download probe via ffprobe — always returns an int (no NA)."""
+    return max(1, math.ceil(get_duration_seconds(audio_path) / 60))
 
 
 def get_user_balance(user_id: str) -> float:
@@ -237,25 +259,45 @@ def main() -> None:
     session_id = job["current_session_id"]
     user_id = job["user_id"]
 
-    # M2 gate: probe duration first, compare to user's balance. Skip Whisper
-    # and the (potentially expensive) video download if the user can't afford
-    # the job. yt-dlp's --print duration is metadata-only and very cheap.
-    minutes = probe_duration_minutes(job["video_source_url"])
-    balance = get_user_balance(user_id)
-    print(f"[{job_id}] duration probe: {minutes} min · balance: {balance:g} cr")
-
-    if minutes > balance:
-        mark_insufficient(job_id, user_id, minutes, balance)
-        print(f"[{job_id}] insufficient_credits — need {minutes}, have {balance:g}")
-        return
-
+    # CLAIM THE JOB FIRST. Distributor picks rows with status='pending'; flip
+    # before any other work so a crash below doesn't put us in a re-spawn loop.
+    # Matches M1's "first DB write claims the row" pattern.
     update_job(job_id, status="downloading")
+
+    # M2 gate: try the cheap yt-dlp metadata probe. May return None for files
+    # where duration can't be determined without downloading (e.g. CloudFront
+    # mp4s with moov atom at end). When that happens we fall back to ffprobe
+    # AFTER the download, before calling Whisper.
+    minutes = probe_duration_minutes_cheap(job["video_source_url"])
+    if minutes is not None:
+        balance = get_user_balance(user_id)
+        print(f"[{job_id}] cheap probe: {minutes} min · balance: {balance:g} cr")
+        if minutes > balance:
+            mark_insufficient(job_id, user_id, minutes, balance)
+            print(f"[{job_id}] insufficient_credits — need {minutes}, have {balance:g}")
+            return
+    else:
+        print(f"[{job_id}] cheap probe returned NA; will probe post-download")
+
     print(f"[{job_id}] downloading {job['video_source_url']}")
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
         video = download_video(job["video_source_url"], tmp_path)
         mp3 = to_mp3(video, tmp_path)
+
+        # If the cheap probe couldn't get duration, get it from the local file
+        # now and re-check balance. We've eaten the download bandwidth — that's
+        # the cost of this fallback path — but Whisper hasn't been called yet,
+        # so the user still pays nothing and we don't burn OpenAI minutes.
+        if minutes is None:
+            minutes = minutes_from_file(mp3)
+            balance = get_user_balance(user_id)
+            print(f"[{job_id}] post-download probe: {minutes} min · balance: {balance:g} cr")
+            if minutes > balance:
+                mark_insufficient(job_id, user_id, minutes, balance)
+                print(f"[{job_id}] insufficient_credits (post-download) — need {minutes}, have {balance:g}")
+                return
 
         update_job(job_id, status="transcribe")
         chunks = split_chunks(mp3, tmp_path)
