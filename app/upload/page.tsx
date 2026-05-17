@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { Download } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { Button } from "@/components/ui/button";
+import { AppHeader } from "@/components/app-header";
 import { UploadForm } from "./upload-form";
 import { SummaryCell } from "./summary-cell";
 
@@ -76,38 +75,11 @@ export default async function UploadPage() {
     }
   }
 
-  async function signOut() {
-    "use server";
-    const supabase = await createClient();
-    await supabase.auth.signOut();
-    redirect("/");
-  }
-
   const rows = (jobs ?? []) as JobRow[];
 
   return (
     <div className="min-h-screen bg-hero">
-      <header className="border-b border-border">
-        <div className="container mx-auto flex items-center justify-between px-6 py-5">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-gradient-primary shadow-glow" />
-            <span className="font-semibold tracking-tight">Video Speed Reader</span>
-          </Link>
-          <nav className="flex items-center gap-3">
-            <Link
-              href="/app"
-              className="text-sm text-muted-foreground hover:text-foreground"
-            >
-              Dashboard
-            </Link>
-            <form action={signOut}>
-              <Button type="submit" variant="outline" size="sm">
-                Sign out
-              </Button>
-            </form>
-          </nav>
-        </div>
-      </header>
+      <AppHeader activeNav="transcriptions" />
 
       <main className="container mx-auto px-6 py-12">
         <div className="animate-fade-up mx-auto max-w-3xl space-y-10">
