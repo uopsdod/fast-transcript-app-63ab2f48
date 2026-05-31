@@ -15,6 +15,8 @@ phases:
       - "(cd layer && zip -qr ../deps-layer.zip python)"
       - "cp worker/lambda_distributor.py handler.py"
       - "zip -q handler.zip handler.py"
-      - "aws s3 cp deps-layer.zip s3://subtitle-m4-artifacts-344458213649/deps-layer.zip"
-      - "aws s3 cp handler.zip s3://subtitle-m4-artifacts-344458213649/handler.zip"
+      # ARTIFACTS_BUCKET is set per-project by the CodeBuild project env so this
+      # buildspec works against any AWS account without code changes.
+      - "aws s3 cp deps-layer.zip s3://${ARTIFACTS_BUCKET}/deps-layer.zip"
+      - "aws s3 cp handler.zip s3://${ARTIFACTS_BUCKET}/handler.zip"
       - "echo DONE"
