@@ -78,6 +78,14 @@ def _find_unspawned_jobs() -> list[dict[str, Any]]:
 
 
 def _ensure_session(job_id: str, existing: dict[str, Any] | None) -> dict[str, Any]:
+    """
+    Return the session row to spawn into. If a session already exists (the
+    normal path — /api/jobs creates jobs + session_number=1 atomically), use it.
+    If not (direct-INSERT test jobs, recovery cases), create one AND link it
+    back to jobs.current_session_id so the worker can find it via
+    job["current_session_id"]. Without that link, worker.py crashes at
+    update_session(None, ...).
+    """
     if existing is not None:
         return existing
     row = (
@@ -86,6 +94,7 @@ def _ensure_session(job_id: str, existing: dict[str, Any] | None) -> dict[str, A
         .execute()
         .data[0]
     )
+    db.table("jobs").update({"current_session_id": row["id"]}).eq("id", job_id).execute()
     return row
 
 
