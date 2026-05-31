@@ -1,0 +1,27 @@
+# M4 — AWS CodeBuild instructions for building the worker image and pushing to ECR.
+# Triggered by the GitHub push webhook (Step 3f) once the project + ECR repo exist.
+# Requires privilegedMode=true on the CodeBuild project (so the build container can run Docker).
+version: 0.2
+
+env:
+  variables:
+    # ECR_URI is overridden by the CodeBuild project's environmentVariables
+    # (set to "<acct>.dkr.ecr.<region>.amazonaws.com/subtitle-worker" in Step 3d).
+    ECR_URI: "placeholder"
+
+phases:
+  pre_build:
+    commands:
+      # Derive the registry host (everything before the first "/") so docker login
+      # gets the bare registry, not the repo path.
+      - REGISTRY="${ECR_URI%%/*}"
+      - echo "Logging into ECR registry $REGISTRY"
+      - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$REGISTRY"
+  build:
+    commands:
+      - echo "Building image $ECR_URI:latest from ./worker"
+      - docker build -t "$ECR_URI:latest" ./worker
+  post_build:
+    commands:
+      - echo "Pushing $ECR_URI:latest"
+      - docker push "$ECR_URI:latest"
