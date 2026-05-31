@@ -1,0 +1,17 @@
+# M4 helper buildspec — packages the Lambda distributor + its deps layer and
+# uploads them to S3. Runs in CodeBuild (which has S3 connectivity) because the
+# Cowork sandbox can't reach S3.
+# Invoke via: aws codebuild start-build --project-name subtitle-worker-build \
+#              --buildspec-override lambda-build.buildspec.yml
+version: 0.2
+phases:
+  build:
+    commands:
+      - mkdir -p layer/python
+      - pip install --target layer/python --platform manylinux2014_x86_64 --only-binary=:all: --python-version 3.12 --implementation cp --abi cp312 supabase boto3
+      - (cd layer && zip -qr ../deps-layer.zip python)
+      - cp worker/lambda_distributor.py handler.py
+      - zip -q handler.zip handler.py
+      - aws s3 cp deps-layer.zip s3://subtitle-m4-artifacts-344458213649/deps-layer.zip
+      - aws s3 cp handler.zip s3://subtitle-m4-artifacts-344458213649/handler.zip
+      - echo "DONE"
